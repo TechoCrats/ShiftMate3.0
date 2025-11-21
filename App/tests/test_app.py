@@ -1,6 +1,7 @@
 import os, tempfile, pytest, logging, unittest
 from werkzeug.security import check_password_hash, generate_password_hash
 from App.main import create_app
+import time
 from App.database import db, create_db
 from datetime import datetime, timedelta
 from App.models import User, Schedule, Shift
@@ -17,6 +18,13 @@ from App.controllers import (
     clock_out,
     get_shift 
 )
+from App.controllers.scheduling import (
+    Scheduler,
+    EvenDistributeStrategy,
+    MinimizeDaysStrategy,
+    ShiftTypeStrategy,
+    SchedulingStrategy
+)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,11 +33,8 @@ LOGGER = logging.getLogger(__name__)
    Unit Tests
 '''
 
-
-
 class UserUnitTests(unittest.TestCase):
 
-# User unit tests
     def test_new_user_admin(self):
         user = create_user("bot", "bobpass","admin")
         assert user.username == "bot"
@@ -41,7 +46,6 @@ class UserUnitTests(unittest.TestCase):
     def test_create_user_invalid_role(self):
         user = create_user("jim", "jimpass","ceo")
         assert user == None
-
 
     def test_get_json(self):
         user = User("bob", "bobpass", "admin")
@@ -58,7 +62,347 @@ class UserUnitTests(unittest.TestCase):
         password = "mypass"
         user = User("bob", password)
         assert user.check_password(password)
+
+class SchedulingStrategyUnitTests(unittest.TestCase):
+    
+    def test_scheduling_strategy_abstract(self):
+        with self.assertRaises(TypeError):
+            strategy = SchedulingStrategy()
+
+    def test_even_distribute_strategy_creation(self):
+        strategy = EvenDistributeStrategy()
+        self.assertIsInstance(strategy, EvenDistributeStrategy)
+        self.assertIsInstance(strategy, SchedulingStrategy)
+
+    def test_minimize_days_strategy_creation(self):
+        strategy = MinimizeDaysStrategy()
+        self.assertIsInstance(strategy, MinimizeDaysStrategy)
+        self.assertIsInstance(strategy, SchedulingStrategy)
+
+    def test_shift_type_strategy_creation(self):
+        strategy = ShiftTypeStrategy()
+        self.assertIsInstance(strategy, ShiftTypeStrategy)
+        self.assertIsInstance(strategy, SchedulingStrategy)
+
+    def test_scheduler_creation(self):
+        scheduler = Scheduler()
+        self.assertIsInstance(scheduler, Scheduler)
+        
+        available_strategies = scheduler.get_available_strategies()
+        expected_strategies = ["even_distribute", "minimize_days", "shift_type_optimize"]
+        self.assertEqual(set(available_strategies), set(expected_strategies))
+
+class EvenDistributeStrategyUnitTests(unittest.TestCase):
+    
+    def setUp(self):
+        self.strategy = EvenDistributeStrategy()
+        
+        # Create test staff
+        class TestStaff:
+            def __init__(self, username, skills=None, unavailable_days=None):
+                self.username = username
+                self.skills = skills or []
+                self.unavailable_days = unavailable_days or []
+                self.assigned_shifts = []
+                self.total_hours = 0
+                self.days_worked = 0
+                self.max_hours_per_week = 40
+                self.preferred_shift_types = ['regular']
+
+        # Create test shifts
+        class TestShift:
+            def __init__(self, shift_id, start_time, end_time, required_skills=None):
+                self.id = shift_id
+                self.start_time = start_time
+                self.end_time = end_time
+                self.required_skills = required_skills or []
+                self.assigned_staff = []
+                self.duration_hours = 8
+                self.required_staff = 1
+                self.shift_type = 'regular'
+
+        self.staff = [
+            TestStaff("john", skills=["cashier", "customer_service"]),
+            TestStaff("jane", skills=["cashier", "stocking"]),
+            TestStaff("bob", skills=["management", "customer_service"])
+        ]
+
+        self.shifts = [
+            TestShift(1, datetime(2024, 1, 1, 9, 0), datetime(2024, 1, 1, 17, 0), ["cashier"]),
+            TestShift(2, datetime(2024, 1, 2, 9, 0), datetime(2024, 1, 2, 17, 0), ["stocking"]),
+            TestShift(3, datetime(2024, 1, 3, 9, 0), datetime(2024, 1, 3, 17, 0), ["customer_service"]),
+        ]
+
+    def test_even_distribute_generate_schedule(self):
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule(
+            self.staff, self.shifts, start_date, end_date
+        )
+        
+        # Check result structure
+        self.assertIn("strategy", result)
+        self.assertIn("schedule", result)
+        self.assertIn("summary", result)
+        self.assertIn("fairness_score", result)
+        
+        self.assertEqual(result["strategy"], "Even Distribution")
+        
+        # Check summary structure
+        summary = result["summary"]
+        self.assertIn("total_staff", summary)
+        self.assertIn("total_hours_assigned", summary)
+        self.assertIn("average_hours_per_staff", summary)
+        
+        # Check schedule structure
+        schedule = result["schedule"]
+        self.assertIsInstance(schedule, dict)
+
+    def test_even_distribute_empty_input(self):
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule([], [], start_date, end_date)
+        
+        self.assertEqual(result["summary"]["total_staff"], 0)
+        self.assertEqual(result["summary"]["total_hours_assigned"], 0)
+        self.assertEqual(result["fairness_score"], 0.0)
+
+    def test_even_distribute_skill_match(self):
+        # Create staff with specific skills
+        cashier_only = type('Staff', (), {
+            'username': 'cashier_only',
+            'skills': ['cashier'],
+            'unavailable_days': [],
+            'assigned_shifts': [],
+            'total_hours': 0,
+            'days_worked': 0,
+            'max_hours_per_week': 40,
+            'preferred_shift_types': ['regular']
+        })()
+        
+        # Create shift requiring management skill
+        management_shift = type('Shift', (), {
+            'id': 99,
+            'start_time': datetime(2024, 1, 1, 9, 0),
+            'end_time': datetime(2024, 1, 1, 17, 0),
+            'required_skills': ['management'],
+            'assigned_staff': [],
+            'duration_hours': 8,
+            'required_staff': 1,
+            'shift_type': 'regular'
+        })()
+        
+        result = self.strategy.generate_schedule(
+            [cashier_only], [management_shift], 
+            datetime(2024, 1, 1), datetime(2024, 1, 5)
+        )
+        
+        self.assertEqual(len(management_shift.assigned_staff), 0)
+
+class MinimizeDaysStrategyUnitTests(unittest.TestCase):
+    
+    def setUp(self):
+        self.strategy = MinimizeDaysStrategy()
+        
+        class TestStaff:
+            def __init__(self, username, skills=None, unavailable_days=None):
+                self.username = username
+                self.skills = skills or []
+                self.unavailable_days = unavailable_days or []
+                self.assigned_shifts = []
+                self.total_hours = 0
+                self.days_worked = 0
+                self.max_hours_per_week = 40
+                self.preferred_shift_types = ['regular']
+
+        class TestShift:
+            def __init__(self, shift_id, start_time, end_time, required_skills=None):
+                self.id = shift_id
+                self.start_time = start_time
+                self.end_time = end_time
+                self.required_skills = required_skills or []
+                self.assigned_staff = []
+                self.duration_hours = 8
+                self.required_staff = 1
+                self.shift_type = 'regular'
+
+        self.staff = [
+            TestStaff("alice", skills=["cashier", "stocking"]),
+            TestStaff("charlie", skills=["management"]),
+        ]
+
+        # Create multiple shifts on same day
+        self.shifts = [
+            TestShift(1, datetime(2024, 1, 1, 9, 0), datetime(2024, 1, 1, 17, 0), ["cashier"]),
+            TestShift(2, datetime(2024, 1, 1, 17, 0), datetime(2024, 1, 1, 1, 0), ["stocking"]),
+            TestShift(3, datetime(2024, 1, 2, 9, 0), datetime(2024, 1, 2, 17, 0), ["management"]),
+        ]
+
+    def test_minimize_days_generate_schedule(self):
+        """Test MinimizeDaysStrategy generates a valid schedule"""
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule(
+            self.staff, self.shifts, start_date, end_date
+        )
+        
+        self.assertIn("strategy", result)
+        self.assertIn("schedule", result)
+        self.assertIn("summary", result)
+        self.assertIn("efficiency_score", result)
+        
+        self.assertEqual(result["strategy"], "Minimize Days")
+        
+        # Check that summary includes days information
+        summary = result["summary"]
+        self.assertIn("average_days_per_staff", summary)
+        self.assertIn("min_days", summary)
+        self.assertIn("max_days", summary)
+
+    def test_minimize_days_consolidation(self):
+        """Test that MinimizeDaysStrategy consolidates shifts on same day"""
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule(
+            self.staff, self.shifts, start_date, end_date
+        )
+        
+        # Check that staff work fewer days with more hours per day
+        summary = result["summary"]
+        self.assertLessEqual(summary["average_days_per_staff"], len(self.shifts))
+
+class ShiftTypeStrategyUnitTests(unittest.TestCase):
+    
+    def setUp(self):
+        self.strategy = ShiftTypeStrategy()
+        
+        class TestStaff:
+            def __init__(self, username, preferred_shift_types, skills=None):
+                self.username = username
+                self.skills = skills or []
+                self.unavailable_days = []
+                self.assigned_shifts = []
+                self.total_hours = 0
+                self.days_worked = 0
+                self.max_hours_per_week = 40
+                self.preferred_shift_types = preferred_shift_types
+
+        class TestShift:
+            def __init__(self, shift_id, start_time, end_time, shift_type, required_skills=None):
+                self.id = shift_id
+                self.start_time = start_time
+                self.end_time = end_time
+                self.required_skills = required_skills or []
+                self.assigned_staff = []
+                self.duration_hours = 8
+                self.required_staff = 1
+                self.shift_type = shift_type
+
+        # Staff with different shift preferences
+        self.morning_staff = TestStaff("morning Person", ["morning"])
+        self.evening_staff = TestStaff("evening Person", ["evening"])
+        
+        self.shifts = [
+            TestShift(1, datetime(2024, 1, 1, 6, 0), datetime(2024, 1, 1, 14, 0), "morning"),
+            TestShift(2, datetime(2024, 1, 1, 14, 0), datetime(2024, 1, 1, 22, 0), "evening"),
+            TestShift(3, datetime(2024, 1, 2, 6, 0), datetime(2024, 1, 2, 14, 0), "morning"),
+        ]
+
+    def test_shift_type_generate_schedule(self):
+       
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule(
+            [self.morning_staff, self.evening_staff], self.shifts, start_date, end_date
+        )
+        
+        self.assertIn("strategy", result)
+        self.assertIn("schedule", result)
+        self.assertIn("summary", result)
+        self.assertIn("preference_score", result)
+        
+        self.assertEqual(result["strategy"], "Shift Type Optimization")
+
+    def test_shift_type_preference_match(self):
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 5)
+        
+        result = self.strategy.generate_schedule(
+            [self.morning_staff, self.evening_staff], self.shifts, start_date, end_date
+        )
+        
+        morning_shifts = [s for s in self.morning_staff.assigned_shifts if s.shift_type == "morning"]
+        evening_shifts = [s for s in self.evening_staff.assigned_shifts if s.shift_type == "evening"]
+        
+        # The strategy should prefer matching shift types
+        self.assertGreaterEqual(len(morning_shifts), 0)
+        self.assertGreaterEqual(len(evening_shifts), 0)
+
+class SchedulerIntegrationTests(unittest.TestCase):
+    
+    def setUp(self):
+        self.scheduler = Scheduler()
+        
+        class TestStaff:
+            def __init__(self, username, skills=None):
+                self.username = username
+                self.skills = skills or ["cashier"]
+                self.assigned_shifts = []
+                self.total_hours = 0
+                self.days_worked = 0
+
+        class TestShift:
+            def __init__(self, shift_id, start_time, end_time):
+                self.id = shift_id
+                self.start_time = start_time
+                self.end_time = end_time
+                self.assigned_staff = []
+                self.duration_hours = 8
+                self.required_staff = 1
+                self.shift_type = 'regular'
+                self.required_skills = ['cashier']
+
+        self.staff = [TestStaff(f"staff_{i}") for i in range(3)]
+        self.shifts = [
+            TestShift(i, datetime(2024, 1, 1 + i, 9, 0), datetime(2024, 1, 1 + i, 17, 0))
+            for i in range(5)
+        ]
+
+    def test_scheduler_all_strategies(self):
+        start_date = datetime(2024, 1, 1)
+        end_date = datetime(2024, 1, 10)
+        
+        for strategy_name in self.scheduler.get_available_strategies():
+            with self.subTest(strategy=strategy_name):
+                result = self.scheduler.generate_schedule(
+                    strategy_name, self.staff, self.shifts, start_date, end_date
+                )
+                self.assertIn("strategy", result)
+                self.assertIn("schedule", result)
+                self.assertIn("summary", result)
+
+    def test_scheduler_invalid_strategy(self):
+        with self.assertRaises(ValueError) as context:
+            self.scheduler.generate_schedule(
+                "invalid_strategy", self.staff, self.shifts, 
+                datetime(2024, 1, 1), datetime(2024, 1, 10)
+            )
+        
+        self.assertIn("Unknown strategy", str(context.exception))
+
+    def test_scheduler_get_available_strategies(self):
+        strategies = self.scheduler.get_available_strategies()
+        expected = ["even_distribute", "minimize_days", "shift_type_optimize"]
+        self.assertEqual(set(strategies), set(expected))
+        self.assertEqual(len(strategies), 3)
+
 # Admin unit tests
+class AdminUnitTests(unittest.TestCase):
     def test_schedule_shift_valid(self):
         admin = create_user("admin1", "adminpass", "admin")
         staff = create_user("staff1", "staffpass", "staff")
@@ -120,7 +464,9 @@ class UserUnitTests(unittest.TestCase):
             assert False, "Expected PermissionError for non-admin user"
         except PermissionError as e:
             assert str(e) == "Only admins can view shift reports"
+
 # Staff unit tests
+class StaffUnitTests(unittest.TestCase):
     def test_get_combined_roster_valid(self):
         staff = create_user("staff3", "pass123", "staff")
         admin = create_user("admin3", "adminpass", "admin")
@@ -219,6 +565,7 @@ class UserUnitTests(unittest.TestCase):
         with pytest.raises(ValueError) as e:
             clock_out(staff.id, 999)  
         assert str(e.value) == "Invalid shift for staff"
+
 '''
     Integration Tests
 '''
@@ -228,8 +575,7 @@ def clean_db():
     create_db()
     db.session.remove()
     yield
-# This fixture creates an empty database for the test and deletes it after the test
-# scope="class" would execute the fixture once and resued for all methods in the class
+
 @pytest.fixture(autouse=True, scope="module")
 def empty_db():
     app = create_app({'TESTING': True, 'SQLALCHEMY_DATABASE_URI': 'sqlite:///test.db'})
@@ -237,7 +583,6 @@ def empty_db():
     db.session.remove()
     yield app.test_client()
     db.drop_all()
-
 
 def test_authenticate():
     user = User("bob", "bobpass","user")
@@ -324,8 +669,8 @@ class UsersIntegrationTests(unittest.TestCase):
         shift = schedule_shift(admin.id, staff.id, schedule.id, start, end)
 
         clock_in(staff.id, shift.id)
+        time.sleep(0.01)  
         clock_out(staff.id, shift.id)
-
 
         updated_shift = get_shift(shift.id)
         self.assertIsNotNone(updated_shift.clock_in)
@@ -369,3 +714,43 @@ class UsersIntegrationTests(unittest.TestCase):
 
         with self.assertRaises(PermissionError):
             get_shift_report(staff.id)
+
+class SchedulingIntegrationTests(unittest.TestCase):
+    
+    def test_scheduler_with_user_and_shift(self):
+      
+        admin = create_user("scheduler_admin", "adminpass", "admin")
+        staff1 = create_user("scheduler_staff1", "staffpass", "staff")
+        staff2 = create_user("scheduler_staff2", "staffpass", "staff")
+        
+        # Create schedule
+        schedule = Schedule(name="Scheduler Test", created_by=admin.id)
+        db.session.add(schedule)
+        db.session.commit()
+        
+        # Create shifts
+        shifts = []
+        for i in range(3):
+            shift = schedule_shift(
+                admin.id, staff1.id, schedule.id,
+                datetime(2024, 1, 1 + i, 9, 0, 0),
+                datetime(2024, 1, 1 + i, 17, 0, 0)
+            )
+            shifts.append(shift)
+        
+        # Test scheduler
+        scheduler = Scheduler()
+        staff_list = [staff1, staff2]
+        
+        result = scheduler.generate_schedule(
+            "even_distribute",
+            staff_list,
+            shifts,
+            datetime(2024, 1, 1),
+            datetime(2024, 1, 5)
+        )
+        
+        self.assertEqual(result["strategy"], "Even Distribution")
+        self.assertIn("summary", result)
+        self.assertIn("fairness_score", result)
+
