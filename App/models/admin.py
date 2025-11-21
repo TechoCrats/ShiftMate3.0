@@ -19,8 +19,3 @@ class Admin(User):
 
     def __init__(self, username, password):
         super().__init__(username, password, "admin")
-
-    def get_json(self):
-        data = super().get_json()
-        data["schedules_created"] = [s.id for s in self.schedules]
-        return data

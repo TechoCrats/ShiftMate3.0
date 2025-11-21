@@ -6,17 +6,16 @@ from App.controllers.user import get_user
 
 
 def _ensure_admin(admin_id):
-    """
-    Internal helper: load user and ensure they are an admin.
-    """
+    # allow None to fall through to normal admin check
     try:
         admin_id = int(admin_id)
     except (TypeError, ValueError):
-        raise PermissionError("Invalid admin id")
+        raise PermissionError("Only admins can view shift reports")
 
     admin = get_user(admin_id)
     if not admin or admin.role != "admin":
-        raise PermissionError("Only admins can perform this action")
+        raise PermissionError("Only admins can view shift reports")
+
     return admin
 
 
