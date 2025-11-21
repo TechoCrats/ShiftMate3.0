@@ -1,21 +1,38 @@
-from App.models import Shift
-from App.database import db
 from datetime import datetime
-from App.controllers.user import get_user
 
 from App.models import Shift, Schedule
 from App.database import db
-from datetime import datetime
 from App.controllers.user import get_user
 
-def create_schedule(admin_id, scheduleName): #Not sure why this was missing
+
+def _ensure_admin(admin_id):
+    """
+    Internal helper: load user and ensure they are an admin.
+    """
+    try:
+        admin_id = int(admin_id)
+    except (TypeError, ValueError):
+        raise PermissionError("Invalid admin id")
+
     admin = get_user(admin_id)
     if not admin or admin.role != "admin":
-        raise PermissionError("Only admins can create schedules")
+        raise PermissionError("Only admins can perform this action")
+    return admin
+
+
+def create_schedule(admin_id, scheduleName):
+    """
+    UML: Admin.scheduleShift() – creating a Schedule object.
+    Called by /createSchedule in AdminViews.py
+    """
+    _ensure_admin(admin_id)
+
+    if not scheduleName or not scheduleName.strip():
+        raise ValueError("Schedule name is required")
 
     new_schedule = Schedule(
-        created_by=admin_id,
-        name=scheduleName,
+        created_by=int(admin_id),
+        name=scheduleName.strip(),
         created_at=datetime.utcnow()
     )
 
@@ -24,18 +41,31 @@ def create_schedule(admin_id, scheduleName): #Not sure why this was missing
 
     return new_schedule
 
+
 def schedule_shift(admin_id, staff_id, schedule_id, start_time, end_time):
-    admin = get_user(admin_id)
+    """
+    UML: Admin.scheduleShift() – assign a shift to a staff member.
+    Called by /createShift in AdminViews.py
+    """
+    _ensure_admin(admin_id)
+
+    # Cast IDs safely; JWT identity is a string
+    try:
+        staff_id = int(staff_id)
+        schedule_id = int(schedule_id)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid staff or schedule id")
+
     staff = get_user(staff_id)
-
-    schedule = db.session.get(Schedule, schedule_id)
-
-    if not admin or admin.role != "admin":
-        raise PermissionError("Only admins can schedule shifts")
     if not staff or staff.role != "staff":
         raise ValueError("Invalid staff member")
+
+    schedule = db.session.get(Schedule, schedule_id)
     if not schedule:
         raise ValueError("Invalid schedule ID")
+
+    if start_time >= end_time:
+        raise ValueError("Shift start time must be before end time")
 
     new_shift = Shift(
         staff_id=staff_id,
@@ -51,8 +81,12 @@ def schedule_shift(admin_id, staff_id, schedule_id, start_time, end_time):
 
 
 def get_shift_report(admin_id):
-    admin = get_user(admin_id)
-    if not admin or admin.role != "admin":
-        raise PermissionError("Only admins can view shift reports")
+    """
+    UML: Admin.viewShift() – get a list of all shifts (report).
+    Called by /shiftReport in AdminViews.py
+    """
+    _ensure_admin(admin_id)
 
-    return [shift.get_json() for shift in Shift.query.order_by(Shift.start_time).all()]
+    # For now: simple report (can be grouped by staff/schedule later)
+    shifts = Shift.query.order_by(Shift.start_time).all()
+    return [shift.get_json() for shift in shifts]

@@ -3,9 +3,24 @@ from .user import User
 
 class Admin(User):
     id = db.Column(db.Integer, db.ForeignKey("user.id"), primary_key=True)
+
+    # Optional: schedules this admin created
+    # (since Schedule.created_by -> user.id)
+    schedules = db.relationship(
+        "Schedule",
+        backref="admin",
+        lazy=True,
+        foreign_keys="Schedule.created_by"
+    )
+
     __mapper_args__ = {
         "polymorphic_identity": "admin",
     }
 
     def __init__(self, username, password):
         super().__init__(username, password, "admin")
+
+    def get_json(self):
+        data = super().get_json()
+        data["schedules_created"] = [s.id for s in self.schedules]
+        return data
