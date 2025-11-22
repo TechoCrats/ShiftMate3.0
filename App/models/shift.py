@@ -5,12 +5,17 @@ class Shift(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     staff_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     schedule_id = db.Column(db.Integer, db.ForeignKey("schedule.id"), nullable=True)
+    shift_type_id = db.Column(db.Integer, db.ForeignKey("shift_type.id"), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
     end_time = db.Column(db.DateTime, nullable=False)
     clock_in = db.Column(db.DateTime, nullable=True)
     clock_out = db.Column(db.DateTime, nullable=True)
-
     staff = db.relationship("Staff", backref="shifts", foreign_keys=[staff_id])
+
+    def get_duration(self):
+        """Returns duration in hours"""
+        duration = self.end_time - self.start_time
+        return duration.total_seconds() / 3600
 
     def get_json(self):
         return {
