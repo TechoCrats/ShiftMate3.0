@@ -70,6 +70,13 @@ class UserUnitTests(unittest.TestCase):
         password = "mypass"
         user = User("bob", password)
         assert user.check_password(password)
+    
+    def test_create_duplicate_username(self): #added
+        user1 =  create_user("unique_bob", "pass", "staff")
+
+        user2 = create_user("unique_bob", "pass", "staff")
+
+        self.assertIsNone(user2)
 
 class SchedulingStrategyUnitTests(unittest.TestCase):
     
@@ -475,6 +482,20 @@ class AdminUnitTests(unittest.TestCase):
         except PermissionError as e:
             assert str(e) == "Only admins can view shift reports"
 
+    def test_schedule_shift_end_before_start(self): #added
+        admin = create_user("admin_time", "timepass", "admin")
+        staff = create_user("staff_time", "timepass", "staff")
+        schedule = Schedule(name="Time Schedule", created_by=admin.id)
+        db.session.add(schedule)
+        db.session.commit()
+        start = datetime(2025, 10, 22, 16, 0, 0) # 4pm
+        end = datetime(2025, 10, 22, 8, 0, 0) # 8am same day
+
+        with pytest.raises(ValueError) as e:
+            
+
+            schedule_shift(admin.id, staff.id, schedule.id, start, end)
+
 #New tests for Admin.auto_populate
 class AdminAutoPopulateTests(unittest.TestCase):
     """
@@ -723,6 +744,17 @@ class StaffUnitTests(unittest.TestCase):
             clock_out(staff.id, 999)  
         assert str(e.value) == "Invalid shift for staff"
 
+    def test_clock_in_twice_error(self): #added
+        staff = create_user("double_clockin", "pass", "staff", "staff")
+        clock_in(staff.id, self, 999)
+        with pytest.raises(ValueError) as e:
+            clock_in(staff.id, 999)
+
+    def test_clock_out_without_clock_in(self):#added
+        staff = create_user("double_clockout", "pass", "staff", "staff")
+        with pytest.raises(ValueError) as e:
+            clock_out(staff.id, 999)
+
 '''
     Integration Tests
 '''
@@ -746,6 +778,18 @@ def test_authenticate(empty_db):
     result = loginCLI("bob", "bobpass")
     assert result is not None
     assert "token" in result
+
+def seed_shift_types():
+
+    from App.models import ShiftType
+    if not ShiftType.query.first():
+        morning = ShiftType(name="Morning", start_time=time(9,0), end_time=time(17,0))
+        evening = ShiftType(name="Evening", start_time=time(17,0), end_time=time(1,0))
+        db.session.add_all([morning, evening])
+        db.session.commit()
+
+
+
 
 
 class UsersIntegrationTests(unittest.TestCase):
@@ -874,6 +918,28 @@ class UsersIntegrationTests(unittest.TestCase):
 
         with self.assertRaises(PermissionError):
             get_shift_report(staff.id)
+    
+    def test_cascade_delete_schedule(self):
+        admin = create_user("admin_del", "pass", "admin")
+        staff = create_user("staff_del", "pass", "staff")
+
+        # 1. Create Schedule and Shift
+        schedule = Schedule(name="To Be Deleted", created_by=admin.id)
+        db.session.add(schedule)
+        db.session.commit()
+        
+        shift = schedule_shift(admin.id, staff.id, schedule.id, 
+                             datetime.now(), datetime.now() + timedelta(hours=4))
+        
+        shift_id = shift.id
+        
+        # 2. Delete the Schedule
+        db.session.delete(schedule)
+        db.session.commit()
+        
+        # 3. Verify the Shift is also gone
+        deleted_shift = Shift.query.get(shift_id)
+        self.assertIsNone(deleted_shift, "Shift should have been deleted via cascade")
 
 class SchedulingIntegrationTests(unittest.TestCase):
     
