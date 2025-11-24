@@ -10,4 +10,6 @@ __all__ = [
     'MinimizeDaysStrategy',
     'ShiftTypeStrategy',
     'Scheduler'
+    'schedule_client'
+    'banner'
 ]
