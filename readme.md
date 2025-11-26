@@ -86,12 +86,12 @@ Schedule management
 - `flask schedule create <name>` — create a schedule (admin)
 - `flask schedule list` — list schedules (admin)
 - `flask schedule view <schedule_id>` — view a schedule and its shifts (admin)
-- `flask schedule auto <strategy> [--days N]` — auto-generate a schedule using a strategy (admin)
-    - Example strategies: `even-distribute`, `minimize-days`, `preference-based`
-    - Example: `flask schedule auto even-distribute --days 14`
+- `flask schedule auto <schedule_id> <strategy> [--days N] [--shifts-per-day N] [--shift-type <type>]` — auto-generate shifts into an existing schedule (admin)
+    - Example strategies: `even-distribute`, `minimize-days`, `preference-based`, `day-night-distribute`
+    - Example: `flask schedule auto 1 even-distribute --days 14 --shifts-per-day 2 --shift-type mixed`
 
 Preferences (per-staff)
-The `prefs` CLI uses flags for each preference field. Example:
+The `prefs` CLI uses flags for each preference field. Examples:
 
 ```bash
 # set preferences using CLI flags
@@ -99,6 +99,9 @@ flask prefs set <staff_id> --preferred "morning,evening" --skills "cashier" --un
 
 # get preferences
 flask prefs get <staff_id>
+
+# list all preferences
+flask prefs list
 ```
 
 Note: the `--preferred`, `--skills`, and `--unavailable` flags accept comma-separated values when using the CLI; the controllers accept Python lists when called from code.
@@ -125,6 +128,148 @@ When connecting the project to a fresh empty database ensure the appropriate con
 This creates 4 users id 1 is the admin, id 2 and 3 are staff and 4 is a user
 ```bash
 $ flask init
+```
+# Complete CLI Workflow (run commands in order)
+The following sequence reproduces a typical run-through of the application using the CLI. You can run the commands with `flask` or `python -m flask` from the project root.
+
+1) Initialize DB
+
+```bash
+flask init
+```
+
+2) Create users (admin + staff)
+
+```bash
+flask user create admin adminpass admin
+flask user create jane janepass staff
+flask user create bobstaff bobpass staff
+flask user create alice alicepass staff
+```
+
+3) Verify users
+
+```bash
+flask user list
+```
+
+4) Admin login
+
+```bash
+flask auth login admin adminpass
+flask auth whoami
+```
+
+5) Create schedules
+
+```bash
+flask schedule create "December Schedule"
+flask schedule create "January Schedule"
+```
+
+6) Auto-generate shifts into schedule (example)
+
+```bash
+flask schedule auto 1 even-distribute --days 3 --shifts-per-day 2
+flask schedule auto 2 preference-based --days 2 --shifts-per-day 3
+```
+
+7) View schedules
+
+```bash
+flask schedule list
+flask schedule view 1
+flask schedule view 2
+```
+
+8) Set preferences for staff
+
+```bash
+flask prefs set 2 --preferred "morning,day" --skills "cashier" --max_hours 40 --unavailable "1,3"
+flask prefs set 3 --preferred "evening" --skills "stocking" --max_hours 35 --unavailable "0,6"
+```
+
+9) Verify preferences
+
+```bash
+flask prefs get 2
+flask prefs get 3
+flask prefs list
+```
+
+10) Manual shift scheduling (admin)
+
+```bash
+flask shift schedule 2 1 "2024-12-25T09:00:00" "2024-12-25T17:00:00"
+flask shift schedule 3 1 "2024-12-26T14:00:00" "2024-12-26T22:00:00"
+```
+
+11) View updated schedule
+
+```bash
+flask schedule view 1
+```
+
+12) Admin report
+
+```bash
+flask shift report
+```
+
+13) Logout admin
+
+```bash
+flask auth logout
+```
+
+14) Staff flows (login, roster, clock in/out, logout)
+
+```bash
+# Jane
+flask auth login jane janepass
+flask auth whoami
+flask shift roster
+flask shift clockin 1
+flask shift clockout 1
+flask shift roster
+flask auth logout
+
+# Bobstaff
+flask auth login bobstaff bobpass
+flask auth whoami
+flask shift roster
+flask shift clockin 3
+flask shift clockout 3
+flask shift roster
+flask auth logout
+
+# Alice
+flask auth login alice alicepass
+flask auth whoami
+flask shift roster
+flask shift clockin 2
+flask shift clockout 2
+flask shift roster
+flask auth logout
+```
+
+15) Final admin checks
+
+```bash
+flask auth login admin adminpass
+flask shift report
+flask schedule view 1
+flask schedule view 2
+flask user list
+flask prefs get 2
+flask prefs get 3
+flask prefs list
+```
+
+16) Final logout
+
+```bash
+flask auth logout
 ```
 # User Management
 
