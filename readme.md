@@ -1,5 +1,3 @@
-![Tests](https://github.com/uwidcit/flaskmvc/actions/workflows/dev.yml/badge.svg)
-
 # ShiftMate 3.0 — Flask MVC Workforce Scheduler
 ShiftMate 3.0 is a lightweight Flask-based workforce scheduling system for creating staff accounts, assigning shifts, tracking time, and generating simple reports. It includes automated scheduling strategies (even distribution, minimize days, and shift-type optimization) and per-staff preferences used by the scheduler.
 
@@ -10,9 +8,6 @@ Key features:
 - Auto-generate schedules with multiple strategies
 - Per-staff preferences influencing schedule generation
 
-Demo & Postman: [Demo](https://dcit-flaskmvc.herokuapp.com/) · [Postman Collection](https://documenter.getpostman.com/view/583570/2s83zcTnEJ)
-
-
 # Dependencies
 * Python3/pip3
 * Packages listed in requirements.txt
@@ -21,47 +16,6 @@ Demo & Postman: [Demo](https://dcit-flaskmvc.herokuapp.com/) · [Postman Collect
 ```bash
 $ pip install -r requirements.txt
 ```
-
-# Configuration Management
-
-
-Configuration information such as the database url/port, credentials, API keys etc are to be supplied to the application. However, it is bad practice to stage production information in publicly visible repositories.
-Instead, all config is provided by a config file or via [environment variables](https://linuxize.com/post/how-to-set-and-list-environment-variables-in-linux/).
-
-## In Development
-
-When running the project in a development environment (such as gitpod) the app is configured via default_config.py file in the App folder. By default, the config for development uses a sqlite database.
-
-default_config.py
-```python
-SQLALCHEMY_DATABASE_URI = "sqlite:///temp-database.db"
-SECRET_KEY = "secret key"
-JWT_ACCESS_TOKEN_EXPIRES = 7
-ENV = "DEVELOPMENT"
-```
-
-These values would be imported and added to the app in load_config() function in config.py
-
-config.py
-```python
-# must be updated to inlude addtional secrets/ api keys & use a gitignored custom-config file instad
-def load_config():
-    config = {'ENV': os.environ.get('ENV', 'DEVELOPMENT')}
-    delta = 7
-    if config['ENV'] == "DEVELOPMENT":
-        from .default_config import JWT_ACCESS_TOKEN_EXPIRES, SQLALCHEMY_DATABASE_URI, SECRET_KEY
-        config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
-        config['SECRET_KEY'] = SECRET_KEY
-        delta = JWT_ACCESS_TOKEN_EXPIRES
-...
-```
-
-## In Production
-
-When deploying your application to production/staging you must pass
-in configuration information via environment tab of your render project's dashboard.
-
-![perms](./images/fig1.png)
 
 # CLI Quick Reference
 
@@ -113,14 +67,6 @@ _For development run the serve command (what you execute):_
 ```bash
 $ flask run
 ```
-
-_For production using gunicorn (what the production server executes):_
-```bash
-$ gunicorn wsgi:app
-```
-
-# Deploying
-You can deploy your version of this app to render by clicking on the "Deploy to Render" link above.
 
 # Initializing the Database
 When connecting the project to a fresh empty database ensure the appropriate configuration is set then file then run the following command. This must also be executed once when running the app on heroku by opening the heroku console, executing bash and running the command in the dyno.
@@ -369,22 +315,6 @@ $ flask db upgrade
 $ flask db --help
 ```
 
-# Testing
-
-## Unit & Integration
-Unit and Integration tests are created in the App/test. You can then create commands to run them. Look at the unit test command in wsgi.py for example
-
-```python
-@test.command("user", help="Run User tests")
-@click.argument("type", default="all")
-def user_tests_command(type):
-    if type == "unit":
-        sys.exit(pytest.main(["-k", "UserUnitTests"]))
-    elif type == "int":
-        sys.exit(pytest.main(["-k", "UserIntegrationTests"]))
-    else:
-        sys.exit(pytest.main(["-k", "User"]))
-```
 
 # Testing commands
 
@@ -433,29 +363,4 @@ $ coverage html
 - If you add or change models, run the Flask-Migrate commands to create and apply migrations.
 - Keep `App/models/__init__.py` up-to-date so in-memory DB creation for tests imports all models before `create_all()`.
 
-# Troubleshooting
 
-## Views 404ing
-
-If your newly created views are returning 404 ensure that they are added to the list in main.py.
-
-```python
-from App.views import (
-    user_views,
-    index_views
-)
-
-# New views must be imported and added to this list
-views = [
-    user_views,
-    index_views
-]
-```
-
-## Cannot Update Workflow file
-
-If you are running into errors in gitpod when updateding your github actions file, ensure your [github permissions](https://gitpod.io/integrations) in gitpod has workflow enabled ![perms](./images/gitperms.png)
-
-## Database Issues
-
-If you are adding models you may need to migrate the database with the commands given in the previous database migration section. Alternateively you can delete you database file.
