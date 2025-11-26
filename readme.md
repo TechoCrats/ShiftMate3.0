@@ -297,17 +297,6 @@ flask prefs set 5 --preferred "morning,evening" --skills "cashier" --unavailable
 flask prefs get 5
 ```
 
-# Database Migrations
-If changes to the models are made, the database must be'migrated' so that it can be synced with the new models.
-Then execute following commands using manage.py. More info [here](https://flask-migrate.readthedocs.io/en/latest/)
-
-```bash
-$ flask db init
-$ flask db migrate
-$ flask db upgrade
-$ flask db --help
-```
-
 
 # Testing commands
 
