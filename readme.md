@@ -12,9 +12,16 @@ Key features:
 * Python3/pip3
 * Packages listed in requirements.txt
 
+
 # Installing Dependencies
 ```bash
 $ pip install -r requirements.txt
+```
+# Running the Project
+
+_For development run the serve command (what you execute):_
+```bash
+$ flask run
 ```
 
 # CLI Quick Reference
@@ -61,20 +68,6 @@ flask prefs list
 Note: the `--preferred`, `--skills`, and `--unavailable` flags accept comma-separated values when using the CLI; the controllers accept Python lists when called from code.
 
 
-# Running the Project
-
-_For development run the serve command (what you execute):_
-```bash
-$ flask run
-```
-
-# Initializing the Database
-When connecting the project to a fresh empty database ensure the appropriate configuration is set then file then run the following command. This must also be executed once when running the app on heroku by opening the heroku console, executing bash and running the command in the dyno.
-
-This creates 4 users id 1 is the admin, id 2 and 3 are staff and 4 is a user
-```bash
-$ flask init
-```
 # Complete CLI Workflow (run commands in order)
 The following sequence reproduces a typical run-through of the application using the CLI. You can run the commands with `flask` or `python -m flask` from the project root.
 
@@ -344,23 +337,5 @@ pytest -k PreferencesUnitTests
 pytest -k PreferencesIntegrationTests
 ```
 
-## Test Coverage
-
-You can generate a report on your test coverage via the following command
-
-```bash
-$ coverage report
-```
-
-You can also generate a detailed html report in a directory named htmlcov with the following comand
-
-```bash
-$ coverage html
-```
-
-### Notes
-- The CLI `prefs` commands are convenience wrappers — when calling the controllers directly from Python pass proper Python lists (not comma-separated strings).
-- If you add or change models, run the Flask-Migrate commands to create and apply migrations.
-- Keep `App/models/__init__.py` up-to-date so in-memory DB creation for tests imports all models before `create_all()`.
 
 
