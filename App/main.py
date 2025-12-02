@@ -41,3 +41,8 @@ def create_app(overrides={}):
         
     app.app_context().push()
     return app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run()
