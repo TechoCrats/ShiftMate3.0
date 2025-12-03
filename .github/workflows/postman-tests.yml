@@ -1,0 +1,30 @@
+name: Run Postman API Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:   # allows manual run
+
+jobs:
+  postman-tests:
+    runs-on: windows-latest   # you can change to ubuntu-latest if you prefer
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Postman CLI
+        run: |
+          powershell -Command "[System.Net.ServicePointManager]::SecurityProtocol = 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://dl-cli.pstmn.io/install/win64.ps1'))"
+
+      - name: Login to Postman CLI
+        env:
+          POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+        run: |
+          postman login --with-api-key $env:POSTMAN_API_KEY
+
+      - name: Run Postman Collection
+        run: |
+          postman collection run 33787611-f249aa46-53c8-4d72-abe6-a6dc8b1147f7 -e 33787611-86580fac-1e71-4b0a-997a-7cc6e65907d4
