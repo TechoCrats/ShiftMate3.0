@@ -1854,11 +1854,11 @@
 	],
 	"variable": [
 		{
-			"key": "base_url",
+			"key": "baseUrl",
 			"value": "https://shiftmate3-0.onrender.com"
 		},
 		{
-			"key": "Schedule_id",
+			"key": "schedule_id",
 			"value": "1"
 		},
 		{
