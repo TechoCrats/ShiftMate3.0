@@ -45,6 +45,12 @@ https://technocrats-1703.postman.co/workspace/TechnoCrats-Workspace~b8d276e5-e55
 
 (CHECK TRELLO BOARD FOR CONFIGURATIONS)
 
+## 🧪 Run the API Collection in Postman
+
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://god.postman.co/run-collection/42343421-bf2fe07a-e102-4ff9-be01-c3f5e4cfa46f?env=33787611-86580fac-1e71-4b0a-997a-7cc6e65907d4)
+
+
+
 
 ## 🖥️ CLI Reference
 ShiftMate exposes a series of CLI tools through wsgi.py.
