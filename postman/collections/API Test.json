@@ -460,12 +460,11 @@
 					}
 				},
 				"url": {
-					"raw": "{{baseUrl}}/staff/shift",
+					"raw": "{{baseUrl}}staff/shift",
 					"host": [
-						"{{baseUrl}}"
+						"{{baseUrl}}staff"
 					],
 					"path": [
-						"staff",
 						"shift"
 					]
 				}
@@ -793,13 +792,53 @@
 				"description": "This is a POST request, submitting data to an API via the request body. This request submits JSON data, and the data is reflected in the response.\n\nA successful POST request typically returns a `200 OK` or `201 Created` response code."
 			},
 			"response": []
+		},
+		{
+			"name": "http://localhost:8080/login",
+			"id": "476a7f3d-161e-446c-ab74-8f250ac2ef57",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"username\":\"bob\",\"password\":\"bobpass\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
 		}
 	],
 	"event": [
 		{
 			"listen": "prerequest",
 			"script": {
-				"id": "713a54e3-de9a-4d25-8465-9f1ebc1d46b7",
+				"id": "930e7d90-5b46-400e-80ad-ac5d5a95f841",
 				"type": "text/javascript",
 				"requests": {},
 				"exec": [
@@ -810,7 +849,7 @@
 		{
 			"listen": "test",
 			"script": {
-				"id": "62402ea9-c7b2-4a23-b349-0dc1cd40d279",
+				"id": "359286af-0e6d-4d10-81ed-5d05d2a888b9",
 				"type": "text/javascript",
 				"requests": {},
 				"exec": [
@@ -821,7 +860,7 @@
 	],
 	"variable": [
 		{
-			"id": "6e49dd75-9b97-4586-81e6-a5a759ec95a8",
+			"id": "10974c8f-d1f3-4b81-8d6e-a271527cc59a",
 			"key": "base_url",
 			"value": "https://template.postman-echo.com"
 		}
