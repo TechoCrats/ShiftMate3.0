@@ -29,8 +29,6 @@ from flask_jwt_extended import jwt_required, current_user, unset_jwt_cookies, se
 from .index import index_views
 from App.controllers import login
 
-auth_views = Blueprint('auth_views', __name__, template_folder='../templates')
-
 
 @auth_views.route('/login', methods=['POST'])
 def login_action():
@@ -54,7 +52,7 @@ def login_action():
         if wants_json:
             return jsonify(message='Username and password required'), 400
         flash('Username and password required')
-        next_url = request.referrer or url_for('index_views.index')
+        next_url = url_for('index_views.index_page')
         return redirect(next_url)
 
     token = login(username, password)
@@ -63,7 +61,7 @@ def login_action():
         if wants_json:
             return jsonify(message='Bad username or password given'), 401
         flash('Bad username or password given')
-        next_url = request.referrer or url_for('index_views.index')
+        next_url = url_for('index_views.index_page')
         return redirect(next_url)
 
     # Successful login
@@ -75,7 +73,7 @@ def login_action():
 
     # Browser-style response (redirect + flash)
     flash('Login Successful')
-    next_url = request.referrer or url_for('index_views.index')
+    next_url = url_for('index_views.index_page')
     response = redirect(next_url)
     set_access_cookies(response, token)
     return response
