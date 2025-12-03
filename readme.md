@@ -41,7 +41,8 @@ $ flask run
 
 ## 📬 Postman Collection
 _The Postman Collection is available here:_ <br>
-https://technocrats-1703.postman.co/workspace/TechnoCrats-Workspace~b8d276e5-e552-4175-9811-6bb3893203f9/collection/33787611-dfd6d2cb-ec5e-4bf5-b4b0-912502e9915b?action=share&source=copy-link&creator=33787611
+https://www.postman.com/technocrats-1703/workspace/technocrats-workspace/collection/42343421-bf2fe07a-e102-4ff9-be01-c3f5e4cfa46f?action=share&creator=42343421&active-environment=33787611-86580fac-1e71-4b0a-997a-7cc6e65907d4
+
 
 (CHECK TRELLO BOARD FOR CONFIGURATIONS)
 
